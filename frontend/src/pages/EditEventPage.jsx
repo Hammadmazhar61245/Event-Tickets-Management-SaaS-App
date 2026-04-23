@@ -1,0 +1,108 @@
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import api from '../api/axios';
+import TicketTierForm from '../components/TicketTierForm';
+
+const EditEventPage = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [form, setForm] = useState(null);
+  const [tiers, setTiers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchEvent = async () => {
+      try {
+        const res = await api.get(`/events/${id}`);
+        const ev = res.data;
+        setForm({
+          title: ev.title,
+          description: ev.description,
+          category: ev.category,
+          venue: ev.venue,
+          address: ev.address,
+          startDate: ev.startDate.slice(0, 16),
+          endDate: ev.endDate.slice(0, 16),
+          bannerImageUrl: ev.bannerImageUrl || '',
+        });
+        if (ev.tiers) setTiers(ev.tiers);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchEvent();
+  }, [id]);
+
+  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+
+  const addTier = async (tierData) => {
+    try {
+      const res = await api.post(`/tickets/event/${id}`, tierData);
+      setTiers([...tiers, res.data]);
+    } catch (err) {
+      alert('Error adding tier');
+    }
+  };
+
+  const removeTier = async (tierId) => {
+    if (!window.confirm('Delete this tier?')) return;
+    await api.delete(`/tickets/${tierId}`);
+    setTiers(tiers.filter(t => t._id !== tierId));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await api.put(`/events/${id}`, form);
+      navigate('/organizer/events');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Update failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!form) return <div>Loading...</div>;
+
+  return (
+    <div className="max-w-2xl mx-auto">
+      <h1 className="text-2xl font-bold mb-6">Edit Event</h1>
+      {error && <p className="text-red-500 mb-4">{error}</p>}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <input name="title" value={form.title} onChange={handleChange} className="w-full border p-2 rounded" required />
+        <textarea name="description" value={form.description} onChange={handleChange} className="w-full border p-2 rounded" required />
+        <input name="category" value={form.category} onChange={handleChange} className="w-full border p-2 rounded" required />
+        <input name="venue" value={form.venue} onChange={handleChange} className="w-full border p-2 rounded" required />
+        <input name="address" value={form.address} onChange={handleChange} className="w-full border p-2 rounded" required />
+        <div className="flex gap-4">
+          <input name="startDate" type="datetime-local" value={form.startDate} onChange={handleChange} className="flex-1 border p-2 rounded" required />
+          <input name="endDate" type="datetime-local" value={form.endDate} onChange={handleChange} className="flex-1 border p-2 rounded" required />
+        </div>
+        <input name="bannerImageUrl" value={form.bannerImageUrl} onChange={handleChange} className="w-full border p-2 rounded" placeholder="Banner URL" />
+
+        <div className="border-t pt-4 mt-4">
+          <h2 className="text-xl font-semibold mb-2">Ticket Tiers</h2>
+          <TicketTierForm onAddTier={addTier} />
+          {tiers.length > 0 && (
+            <ul className="mt-3 space-y-2">
+              {tiers.map(tier => (
+                <li key={tier._id} className="flex justify-between bg-gray-100 p-2 rounded">
+                  <span>{tier.name} - ${tier.price} (Sold: {tier.soldCount}/{tier.totalQuantity})</span>
+                  <button type="button" onClick={() => removeTier(tier._id)} className="text-red-500">Remove</button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <button type="submit" disabled={loading} className="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700">
+          {loading ? 'Updating...' : 'Update Event'}
+        </button>
+      </form>
+    </div>
+  );
+};
+
+export default EditEventPage;
