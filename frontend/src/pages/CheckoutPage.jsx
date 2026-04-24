@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
+import toast from 'react-hot-toast';
 
 const CheckoutPage = () => {
   const { eventId } = useParams();
@@ -9,63 +11,48 @@ const CheckoutPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const tiers = location.state?.tiers || [];
-
   const [selectedQuantities, setSelectedQuantities] = useState({});
   const [proceeded, setProceeded] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
-  // Load saved cart from localStorage
   useEffect(() => {
-    const savedCart = localStorage.getItem(`cart_${eventId}`);
-    if (savedCart) {
-      try {
-        const items = JSON.parse(savedCart);
-        const qtyMap = {};
-        items.forEach(item => {
-          qtyMap[item.tierId] = item.quantity;
-        });
-        setSelectedQuantities(qtyMap);
-      } catch (e) {
-        console.error('Cart parse error');
-      }
+    const saved = localStorage.getItem(`cart_${eventId}`);
+    if (saved) {
+      const items = JSON.parse(saved);
+      const qtyMap = {};
+      items.forEach(i => { qtyMap[i.tierId] = i.quantity; });
+      setSelectedQuantities(qtyMap);
     }
   }, [eventId]);
 
-  const handleQuantityChange = (tierId, quantity) => {
-    setSelectedQuantities(prev => ({ ...prev, [tierId]: parseInt(quantity) || 0 }));
-  };
+  const handleQty = (tierId, qty) => setSelectedQuantities(prev => ({ ...prev, [tierId]: parseInt(qty) || 0 }));
 
-  // Calculate total
   const itemsArray = Object.entries(selectedQuantities)
     .filter(([_, qty]) => qty > 0)
-    .map(([tierId, quantity]) => {
+    .map(([tierId, qty]) => {
       const tier = tiers.find(t => t._id === tierId);
-      return { tierId, quantity, tierName: tier?.name, unitPrice: tier?.price };
+      return { tierId, quantity: qty, tierName: tier?.name, unitPrice: tier?.price };
     });
-  const total = itemsArray.reduce((sum, item) => sum + (item.unitPrice || 0) * item.quantity, 0);
+  const total = itemsArray.reduce((sum, i) => sum + (i.unitPrice || 0) * i.quantity, 0);
 
   const proceedToSummary = () => {
-    if (itemsArray.length === 0) {
-      alert('Please select at least one ticket.');
-      return;
-    }
+    if (itemsArray.length === 0) return toast.error('Please select at least one ticket.');
     localStorage.setItem(`cart_${eventId}`, JSON.stringify(itemsArray));
     setProceeded(true);
   };
 
-  const handleConfirmPurchase = async () => {
+  const confirmPurchase = async () => {
     setLoading(true);
-    setError('');
     try {
       await api.post('/orders/simulate-payment', {
         eventId,
         items: itemsArray.map(i => ({ tierId: i.tierId, quantity: i.quantity }))
       });
       localStorage.removeItem(`cart_${eventId}`);
+      toast.success('Purchase successful! Check your tickets.');
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.message || 'Purchase failed. Please try again.');
+      toast.error(err.response?.data?.message || 'Purchase failed');
     } finally {
       setLoading(false);
     }
@@ -75,68 +62,52 @@ const CheckoutPage = () => {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h2 className="text-2xl font-bold mb-6">
-        {proceeded ? 'Confirm Your Purchase' : 'Select Tickets'}
-      </h2>
+      <motion.h2 className="text-3xl font-bold gradient-text mb-8" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        {proceeded ? 'Confirm Purchase' : 'Select Tickets'}
+      </motion.h2>
 
       {!proceeded ? (
-        <div>
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
           {tiers.map(tier => (
-            <div key={tier._id} className="border p-4 mb-3 rounded flex justify-between items-center">
+            <div key={tier._id} className="glass rounded-xl p-5 flex justify-between items-center">
               <div>
-                <h3 className="font-semibold">{tier.name}</h3>
-                <p className="text-gray-600">${tier.price} each</p>
-                <p className="text-sm text-gray-500">
-                  Available: {tier.totalQuantity - tier.soldCount}
-                </p>
+                <h3 className="font-semibold text-lg dark:text-white">{tier.name}</h3>
+                <p className="text-gray-600 dark:text-gray-300">${tier.price} each</p>
+                <p className="text-sm text-gray-500">Available: {tier.totalQuantity - tier.soldCount}</p>
               </div>
-              <input
-                type="number"
-                min="0"
-                max={tier.totalQuantity - tier.soldCount}
+              <input type="number" min="0" max={tier.totalQuantity - tier.soldCount}
                 value={selectedQuantities[tier._id] || 0}
-                onChange={(e) => handleQuantityChange(tier._id, e.target.value)}
-                className="border p-2 w-20 rounded text-center"
+                onChange={(e) => handleQty(tier._id, e.target.value)}
+                className="w-20 px-3 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50 text-center"
               />
             </div>
           ))}
-          <button
-            onClick={proceedToSummary}
-            className="w-full bg-indigo-600 text-white py-2 rounded mt-4 hover:bg-indigo-700"
-          >
+          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={proceedToSummary}
+            className="w-full gradient-bg text-white py-3 rounded-xl font-semibold mt-4">
             Proceed to Payment
-          </button>
-        </div>
+          </motion.button>
+        </motion.div>
       ) : (
-        <div>
-          <div className="bg-white p-6 rounded-lg shadow mb-6">
-            <h3 className="text-xl font-semibold mb-4">Order Summary</h3>
-            {itemsArray.map(item => (
-              <div key={item.tierId} className="flex justify-between py-2 border-b">
-                <span>{item.quantity} × {item.tierName} (${item.unitPrice})</span>
-                <span>${(item.unitPrice * item.quantity).toFixed(2)}</span>
-              </div>
-            ))}
-            <div className="flex justify-between font-bold text-lg mt-4">
-              <span>Total</span>
-              <span>${total.toFixed(2)}</span>
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="glass rounded-xl p-8">
+          <h3 className="text-2xl font-bold dark:text-white mb-4">Order Summary</h3>
+          {itemsArray.map(item => (
+            <div key={item.tierId} className="flex justify-between py-3 border-b border-gray-200 dark:border-gray-700">
+              <span className="dark:text-gray-200">{item.quantity} × {item.tierName} (${item.unitPrice})</span>
+              <span className="font-semibold dark:text-white">${(item.unitPrice * item.quantity).toFixed(2)}</span>
             </div>
+          ))}
+          <div className="flex justify-between font-bold text-xl mt-4 dark:text-white">
+            <span>Total</span>
+            <span className="gradient-text">${total.toFixed(2)}</span>
           </div>
-          {error && <p className="text-red-600 mb-4">{error}</p>}
-          <button
-            onClick={handleConfirmPurchase}
-            disabled={loading}
-            className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 disabled:opacity-50"
-          >
-            {loading ? 'Processing...' : 'Confirm Purchase (Simulated Payment)'}
+          <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={confirmPurchase} disabled={loading}
+            className="w-full mt-6 py-3 rounded-xl font-semibold bg-green-600 text-white hover:bg-green-700 disabled:opacity-50">
+            {loading ? 'Processing...' : 'Confirm Purchase (Simulated)'}
+          </motion.button>
+          <button onClick={() => setProceeded(false)} className="mt-3 text-primary-400 hover:underline w-full text-center">
+            ← Back to selection
           </button>
-          <button
-            onClick={() => setProceeded(false)}
-            className="w-full mt-2 text-indigo-600 hover:underline"
-          >
-            ← Back to ticket selection
-          </button>
-        </div>
+        </motion.div>
       )}
     </div>
   );
