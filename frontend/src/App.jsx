@@ -3,7 +3,7 @@ import Layout from './components/Layout';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
-import EventsPage from './pages/EventsPage';
+import EventsPage from './pages/MyEventsPage';
 import EventDetailsPage from './pages/EventDetailsPage';
 import CheckoutPage from './pages/CheckoutPage';
 import DashboardPage from './pages/DashboardPage';
@@ -24,14 +24,14 @@ function App() {
           <Route path="register" element={<RegisterPage />} />
           <Route path="events" element={<EventsPage />} />
           <Route path="events/:id" element={<EventDetailsPage />} />
-          
+
           <Route element={<ProtectedRoute />}>
             <Route path="checkout/:eventId" element={<CheckoutPage />} />
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="my-tickets" element={<MyTicketsPage />} />
             <Route path="my-orders" element={<OrdersPage />} />
           </Route>
-          
+
           <Route element={<ProtectedRoute requiredRole="organizer" />}>
             <Route path="organizer/events" element={<MyEventsPage />} />
             <Route path="organizer/events/create" element={<CreateEventPage />} />

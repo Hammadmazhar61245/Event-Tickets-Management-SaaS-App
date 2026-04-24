@@ -1,79 +1,34 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { loadStripe } from '@stripe/stripe-js';
 import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
-
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
-
-const CheckoutForm = ({ eventId, tiers, clientSecret, total }) => {
-  const stripe = useStripe();
-  const elements = useElements();
-  const navigate = useNavigate();
-  const [error, setError] = useState('');
-  const [processing, setProcessing] = useState(false);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!stripe || !elements) return;
-    setProcessing(true);
-
-    const { error: confirmError, paymentIntent } = await stripe.confirmPayment({
-      elements,
-      confirmParams: { return_url: `${window.location.origin}/dashboard` },
-      redirect: 'if_required'
-    });
-
-    if (confirmError) {
-      setError(confirmError.message);
-      setProcessing(false);
-    } else if (paymentIntent?.status === 'succeeded') {
-      // Create order in backend
-      const selectedTiers = JSON.parse(localStorage.getItem(`cart_${eventId}`)) || [];
-      try {
-        await api.post('/orders', {
-          eventId,
-          items: selectedTiers,
-          paymentIntentId: paymentIntent.id
-        });
-        localStorage.removeItem(`cart_${eventId}`);
-        navigate('/dashboard');
-      } catch (err) {
-        setError('Order creation failed. Please contact support.');
-      }
-    }
-    setProcessing(false);
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="max-w-md mx-auto">
-      <PaymentElement />
-      {error && <p className="text-red-500 mt-2">{error}</p>}
-      <button type="submit" disabled={!stripe || processing} className="mt-4 w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700 disabled:opacity-50">
-        Pay ${total}
-      </button>
-    </form>
-  );
-};
 
 const CheckoutPage = () => {
   const { eventId } = useParams();
   const location = useLocation();
+  const navigate = useNavigate();
   const { user } = useAuth();
-  const [clientSecret, setClientSecret] = useState('');
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
   const tiers = location.state?.tiers || [];
-  const [selectedQuantities, setSelectedQuantities] = useState({});
 
+  const [selectedQuantities, setSelectedQuantities] = useState({});
+  const [proceeded, setProceeded] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Load saved cart from localStorage
   useEffect(() => {
     const savedCart = localStorage.getItem(`cart_${eventId}`);
     if (savedCart) {
-      setSelectedQuantities(JSON.parse(savedCart).reduce((acc, item) => {
-        acc[item.tierId] = item.quantity;
-        return acc;
-      }, {}));
+      try {
+        const items = JSON.parse(savedCart);
+        const qtyMap = {};
+        items.forEach(item => {
+          qtyMap[item.tierId] = item.quantity;
+        });
+        setSelectedQuantities(qtyMap);
+      } catch (e) {
+        console.error('Cart parse error');
+      }
     }
   }, [eventId]);
 
@@ -81,58 +36,109 @@ const CheckoutPage = () => {
     setSelectedQuantities(prev => ({ ...prev, [tierId]: parseInt(quantity) || 0 }));
   };
 
-  const prepareCheckout = async () => {
-    const items = Object.entries(selectedQuantities)
-      .filter(([_, qty]) => qty > 0)
-      .map(([tierId, quantity]) => ({ tierId, quantity }));
-    if (items.length === 0) return alert('Select at least one ticket');
-    localStorage.setItem(`cart_${eventId}`, JSON.stringify(items));
+  // Calculate total
+  const itemsArray = Object.entries(selectedQuantities)
+    .filter(([_, qty]) => qty > 0)
+    .map(([tierId, quantity]) => {
+      const tier = tiers.find(t => t._id === tierId);
+      return { tierId, quantity, tierName: tier?.name, unitPrice: tier?.price };
+    });
+  const total = itemsArray.reduce((sum, item) => sum + (item.unitPrice || 0) * item.quantity, 0);
+
+  const proceedToSummary = () => {
+    if (itemsArray.length === 0) {
+      alert('Please select at least one ticket.');
+      return;
+    }
+    localStorage.setItem(`cart_${eventId}`, JSON.stringify(itemsArray));
+    setProceeded(true);
+  };
+
+  const handleConfirmPurchase = async () => {
+    setLoading(true);
+    setError('');
     try {
-      const res = await api.post('/orders/create-payment-intent', { eventId, items });
-      setClientSecret(res.data.clientSecret);
-      setTotal(res.data.total);
-      setLoading(false);
+      await api.post('/orders/simulate-payment', {
+        eventId,
+        items: itemsArray.map(i => ({ tierId: i.tierId, quantity: i.quantity }))
+      });
+      localStorage.removeItem(`cart_${eventId}`);
+      navigate('/dashboard');
     } catch (err) {
-      alert(err.response?.data?.message || 'Error preparing checkout');
+      setError(err.response?.data?.message || 'Purchase failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  if (!user) return <div>Please log in to purchase tickets.</div>;
-
-  if (!clientSecret) {
-    return (
-      <div className="max-w-2xl mx-auto">
-        <h2 className="text-2xl font-bold mb-4">Select Tickets</h2>
-        {tiers.map(tier => (
-          <div key={tier._id} className="border p-4 mb-3 rounded">
-            <div className="flex justify-between">
-              <div>
-                <h3 className="font-semibold">{tier.name}</h3>
-                <p>${tier.price} each</p>
-                <p className="text-sm">Available: {tier.totalQuantity - tier.soldCount}</p>
-              </div>
-              <div>
-                <input
-                  type="number"
-                  min="0"
-                  max={tier.totalQuantity - tier.soldCount}
-                  value={selectedQuantities[tier._id] || 0}
-                  onChange={(e) => handleQuantityChange(tier._id, e.target.value)}
-                  className="border p-1 w-20 rounded"
-                />
-              </div>
-            </div>
-          </div>
-        ))}
-        <button onClick={prepareCheckout} className="bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700">Proceed to Payment</button>
-      </div>
-    );
-  }
+  if (!user) return <div className="text-center py-8">Please log in to purchase tickets.</div>;
 
   return (
-    <Elements stripe={stripePromise} options={{ clientSecret }}>
-      <CheckoutForm eventId={eventId} tiers={tiers} clientSecret={clientSecret} total={total} />
-    </Elements>
+    <div className="max-w-2xl mx-auto">
+      <h2 className="text-2xl font-bold mb-6">
+        {proceeded ? 'Confirm Your Purchase' : 'Select Tickets'}
+      </h2>
+
+      {!proceeded ? (
+        <div>
+          {tiers.map(tier => (
+            <div key={tier._id} className="border p-4 mb-3 rounded flex justify-between items-center">
+              <div>
+                <h3 className="font-semibold">{tier.name}</h3>
+                <p className="text-gray-600">${tier.price} each</p>
+                <p className="text-sm text-gray-500">
+                  Available: {tier.totalQuantity - tier.soldCount}
+                </p>
+              </div>
+              <input
+                type="number"
+                min="0"
+                max={tier.totalQuantity - tier.soldCount}
+                value={selectedQuantities[tier._id] || 0}
+                onChange={(e) => handleQuantityChange(tier._id, e.target.value)}
+                className="border p-2 w-20 rounded text-center"
+              />
+            </div>
+          ))}
+          <button
+            onClick={proceedToSummary}
+            className="w-full bg-indigo-600 text-white py-2 rounded mt-4 hover:bg-indigo-700"
+          >
+            Proceed to Payment
+          </button>
+        </div>
+      ) : (
+        <div>
+          <div className="bg-white p-6 rounded-lg shadow mb-6">
+            <h3 className="text-xl font-semibold mb-4">Order Summary</h3>
+            {itemsArray.map(item => (
+              <div key={item.tierId} className="flex justify-between py-2 border-b">
+                <span>{item.quantity} × {item.tierName} (${item.unitPrice})</span>
+                <span>${(item.unitPrice * item.quantity).toFixed(2)}</span>
+              </div>
+            ))}
+            <div className="flex justify-between font-bold text-lg mt-4">
+              <span>Total</span>
+              <span>${total.toFixed(2)}</span>
+            </div>
+          </div>
+          {error && <p className="text-red-600 mb-4">{error}</p>}
+          <button
+            onClick={handleConfirmPurchase}
+            disabled={loading}
+            className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 disabled:opacity-50"
+          >
+            {loading ? 'Processing...' : 'Confirm Purchase (Simulated Payment)'}
+          </button>
+          <button
+            onClick={() => setProceeded(false)}
+            className="w-full mt-2 text-indigo-600 hover:underline"
+          >
+            ← Back to ticket selection
+          </button>
+        </div>
+      )}
+    </div>
   );
 };
 

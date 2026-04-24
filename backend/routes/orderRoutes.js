@@ -1,7 +1,6 @@
 import express from 'express';
 import {
-  createPaymentIntent,
-  createOrder,
+  simulatePayment,
   getMyOrders,
   getOrderById,
   getMyTickets
@@ -10,8 +9,8 @@ import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.post('/create-payment-intent', protect, createPaymentIntent);
-router.post('/', protect, createOrder);
+// Simulated payment (no Stripe)
+router.post('/simulate-payment', protect, simulatePayment);
 router.get('/myorders', protect, getMyOrders);
 router.get('/mytickets', protect, getMyTickets);
 router.get('/:id', protect, getOrderById);

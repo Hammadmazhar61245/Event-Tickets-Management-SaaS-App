@@ -1,19 +1,20 @@
 import express from 'express';
 import {
-  createPaymentIntent,
-  createOrder,
-  getMyOrders,
-  getOrderById,
-  getMyTickets
-} from '../controllers/orderController.js';
-import { protect } from '../middleware/auth.js';
+  createTicketTier,
+  getTicketTiers,
+  updateTicketTier,
+  deleteTicketTier
+} from '../controllers/ticketController.js';
+import { protect, organizer } from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.post('/create-payment-intent', protect, createPaymentIntent);
-router.post('/', protect, createOrder);
-router.get('/myorders', protect, getMyOrders);
-router.get('/mytickets', protect, getMyTickets);
-router.get('/:id', protect, getOrderById);
+router.route('/event/:eventId')
+  .post(protect, organizer, createTicketTier)
+  .get(getTicketTiers);
+
+router.route('/:tierId')
+  .put(protect, organizer, updateTicketTier)
+  .delete(protect, organizer, deleteTicketTier);
 
 export default router;

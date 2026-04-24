@@ -2,48 +2,24 @@ import Order from '../models/Order.js';
 import TicketTier from '../models/TicketTier.js';
 import Ticket from '../models/Ticket.js';
 import Event from '../models/Event.js';
-import stripe from 'stripe';
 import { sendOrderConfirmation } from '../utils/emailService.js';
 
-const stripeInstance = stripe(process.env.STRIPE_SECRET_KEY);
-
-export const createPaymentIntent = async (req, res) => {
+// Simulate a successful payment
+export const simulatePayment = async (req, res) => {
   const { eventId, items } = req.body;
+
   try {
-    // Validate items and calculate amount
-    let total = 0;
-    for (const item of items) {
-      const tier = await TicketTier.findById(item.tierId);
-      if (!tier) throw new Error(`Tier ${item.tierId} not found`);
-      if (tier.soldCount + item.quantity > tier.totalQuantity) {
-        throw new Error(`Not enough tickets for ${tier.name}`);
-      }
-      total += tier.price * item.quantity;
-    }
-
-    const paymentIntent = await stripeInstance.paymentIntents.create({
-      amount: Math.round(total * 100), // cents
-      currency: 'usd',
-      metadata: { eventId, userId: req.user._id.toString() }
-    });
-
-    res.json({ clientSecret: paymentIntent.client_secret, total });
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-};
-
-export const createOrder = async (req, res) => {
-  const { eventId, items, paymentIntentId } = req.body;
-  try {
-    // Recalculate and check availability
+    // Validate items and check availability
     let total = 0;
     const populatedItems = [];
+
     for (const item of items) {
       const tier = await TicketTier.findById(item.tierId);
-      if (!tier) throw new Error('Ticket tier not found');
+      if (!tier) {
+        return res.status(404).json({ message: `Ticket tier ${item.tierId} not found` });
+      }
       if (tier.soldCount + item.quantity > tier.totalQuantity) {
-        throw new Error(`Not enough tickets for ${tier.name}`);
+        return res.status(400).json({ message: `Not enough tickets for ${tier.name}` });
       }
       total += tier.price * item.quantity;
       populatedItems.push({
@@ -54,14 +30,14 @@ export const createOrder = async (req, res) => {
       });
     }
 
-    // Create order
+    // Create order (payment status = 'paid')
     const order = await Order.create({
       attendeeId: req.user._id,
       eventId,
       items: populatedItems,
       totalAmount: total,
       paymentStatus: 'paid',
-      stripePaymentIntentId: paymentIntentId
+      stripePaymentIntentId: 'simulated_' + Date.now() // dummy value
     });
 
     // Update ticket tiers sold count and generate tickets
@@ -70,7 +46,7 @@ export const createOrder = async (req, res) => {
         $inc: { soldCount: item.quantity }
       });
 
-      // Generate tickets (one per quantity)
+      // Generate one ticket per item quantity
       for (let i = 0; i < item.quantity; i++) {
         await Ticket.create({
           orderId: order._id,
@@ -82,16 +58,28 @@ export const createOrder = async (req, res) => {
       }
     }
 
-    // Populate event details for email
+    // Populate event for email and response
     const event = await Event.findById(eventId);
-    await sendOrderConfirmation(req.user.email, order, event);
 
-    res.status(201).json(order);
+    // Send confirmation email (can fail silently in dev)
+    try {
+      await sendOrderConfirmation(req.user.email, order, event);
+    } catch (emailErr) {
+      console.error('Email sending failed:', emailErr.message);
+    }
+
+    const fullOrder = await Order.findById(order._id)
+      .populate('eventId', 'title startDate venue bannerImageUrl')
+      .populate('attendeeId', 'name email');
+
+    res.status(201).json(fullOrder);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error('Simulate payment error:', error);
+    res.status(500).json({ message: error.message });
   }
 };
 
+// Keep existing order retrieval functions unchanged
 export const getMyOrders = async (req, res) => {
   try {
     const orders = await Order.find({ attendeeId: req.user._id })
