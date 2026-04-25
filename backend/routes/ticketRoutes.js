@@ -3,7 +3,8 @@ import {
   createTicketTier,
   getTicketTiers,
   updateTicketTier,
-  deleteTicketTier
+  deleteTicketTier,
+  cancelTicket
 } from '../controllers/ticketController.js';
 import { protect, organizer } from '../middleware/auth.js';
 
@@ -16,5 +17,7 @@ router.route('/event/:eventId')
 router.route('/:tierId')
   .put(protect, organizer, updateTicketTier)
   .delete(protect, organizer, deleteTicketTier);
+
+router.put('/cancel/:ticketId', protect, cancelTicket);
 
 export default router;

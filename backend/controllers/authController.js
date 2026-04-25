@@ -1,5 +1,7 @@
 import User from '../models/User.js';
 import generateToken from '../utils/generateToken.js';
+import { sendVerificationEmail } from '../utils/emailService.js';
+import crypto from 'crypto';
 
 export const register = async (req, res) => {
   const { name, email, password, role, phone } = req.body;
@@ -8,13 +10,23 @@ export const register = async (req, res) => {
     if (userExists) {
       return res.status(400).json({ message: 'User already exists' });
     }
+    const verificationToken = crypto.randomBytes(32).toString('hex');
     const user = await User.create({
       name,
       email,
       passwordHash: password,
       role: role || 'attendee',
-      phone
+      phone,
+      verificationToken
     });
+
+    // Send verification email
+    try {
+      await sendVerificationEmail(user.email, verificationToken);
+    } catch (emailErr) {
+      console.error('Verification email failed:', emailErr.message);
+    }
+
     res.status(201).json({
       _id: user._id,
       name: user.name,
@@ -22,6 +34,20 @@ export const register = async (req, res) => {
       role: user.role,
       token: generateToken(user._id)
     });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const verifyEmail = async (req, res) => {
+  const { token } = req.params;
+  try {
+    const user = await User.findOne({ verificationToken: token });
+    if (!user) return res.status(400).json({ message: 'Invalid or expired token' });
+    user.isVerified = true;
+    user.verificationToken = undefined;
+    await user.save();
+    res.json({ message: 'Email verified successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -37,6 +63,7 @@ export const login = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        isVerified: user.isVerified,
         token: generateToken(user._id)
       });
     } else {
@@ -49,4 +76,14 @@ export const login = async (req, res) => {
 
 export const getProfile = async (req, res) => {
   res.json(req.user);
+};
+
+export const updateProfile = async (req, res) => {
+  try {
+    const updates = req.body;
+    const user = await User.findByIdAndUpdate(req.user._id, updates, { new: true }).select('-passwordHash');
+    res.json(user);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
 };

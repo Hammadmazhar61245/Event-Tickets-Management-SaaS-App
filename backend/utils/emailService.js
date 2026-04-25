@@ -31,3 +31,21 @@ export const sendOrderConfirmation = async (userEmail, order, event) => {
 
   await transporter.sendMail(mailOptions);
 };
+
+export const sendVerificationEmail = async (userEmail, token) => {
+  const verificationUrl = `${process.env.FRONTEND_URL}/verify-email/${token}`;
+
+  const mailOptions = {
+    from: `"Event Ticketing" <${process.env.EMAIL_USER}>`,
+    to: userEmail,
+    subject: 'Verify Your Email Address',
+    html: `
+      <h2>Welcome to EventTix!</h2>
+      <p>Please click the button below to verify your email address and start using your account.</p>
+      <a href="${verificationUrl}" style="display:inline-block;padding:12px 24px;background:#6366f1;color:white;border-radius:8px;text-decoration:none;margin:20px 0;">Verify Email</a>
+      <p>If you didn’t sign up, you can safely ignore this email.</p>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+};

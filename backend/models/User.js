@@ -7,6 +7,9 @@ const userSchema = new mongoose.Schema({
   passwordHash: { type: String, required: true },
   role: { type: String, enum: ['attendee', 'organizer'], default: 'attendee' },
   phone: { type: String },
+  isVerified: { type: Boolean, default: false },
+  verificationToken: { type: String },
+  bookmarkedEvents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Event' }],
   createdAt: { type: Date, default: Date.now }
 });
 

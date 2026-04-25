@@ -5,7 +5,8 @@ export const createEvent = async (req, res) => {
   try {
     const event = await Event.create({
       ...req.body,
-      organizerId: req.user._id
+      organizerId: req.user._id,
+      status: 'published'        // <-- new events are immediately visible
     });
     res.status(201).json(event);
   } catch (error) {

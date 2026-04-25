@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import toast from 'react-hot-toast';
 import api from '../api/axios';
 import { formatDate } from '../utils/formatDate';
 
@@ -6,32 +8,52 @@ const MyTicketsPage = () => {
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchTickets = () => {
     api.get('/orders/mytickets')
       .then(res => setTickets(res.data))
       .finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchTickets();
   }, []);
 
-  if (loading) return <div>Loading...</div>;
+  const cancelTicket = async (ticketId) => {
+    if (!window.confirm('Are you sure you want to cancel this ticket?')) return;
+    try {
+      await api.put(`/tickets/cancel/${ticketId}`);
+      toast.success('Ticket cancelled');
+      fetchTickets(); // refresh
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Cancel failed');
+    }
+  };
 
-  if (tickets.length === 0) return <div>No tickets purchased yet.</div>;
+  if (loading) return <div className="text-center py-8">Loading tickets...</div>;
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">My Tickets</h1>
-      <div className="space-y-4">
-        {tickets.map(ticket => (
-          <div key={ticket._id} className="bg-white p-4 rounded shadow flex justify-between items-center">
-            <div>
-              <h3 className="font-semibold">{ticket.eventId?.title || 'Event'}</h3>
-              <p className="text-sm text-gray-600">{ticket.tierName}</p>
-              <p className="text-xs text-gray-500">Issued: {formatDate(ticket.issuedAt)}</p>
-              <p className="text-xs text-gray-500">Status: {ticket.status}</p>
-            </div>
-            <a href={`/events/${ticket.eventId?._id}`} className="text-indigo-600 hover:underline">View Event</a>
-          </div>
-        ))}
-      </div>
+      <h1 className="text-3xl font-bold gradient-text mb-8">My Tickets</h1>
+      {tickets.length === 0 ? (
+        <p className="text-gray-500 dark:text-gray-400">No tickets purchased yet.</p>
+      ) : (
+        <div className="space-y-4">
+          {tickets.map(ticket => (
+            <motion.div key={ticket._id} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="glass rounded-xl p-5 flex justify-between items-center">
+              <div>
+                <h3 className="font-semibold dark:text-white">{ticket.eventId?.title || 'Event'}</h3>
+                <p className="text-gray-600 dark:text-gray-300">{ticket.tierName}</p>
+                <p className="text-xs text-gray-500">Issued: {formatDate(ticket.issuedAt)} | Status: <span className={ticket.status === 'valid' ? 'text-green-500' : 'text-red-500'}>{ticket.status}</span></p>
+              </div>
+              {ticket.status === 'valid' && (
+                <button onClick={() => cancelTicket(ticket._id)} className="px-4 py-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition">
+                  Cancel
+                </button>
+              )}
+            </motion.div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
