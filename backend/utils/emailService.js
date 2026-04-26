@@ -1,16 +1,22 @@
+import dotenv from 'dotenv';
+dotenv.config();               // ensure .env is loaded immediately
+
 import nodemailer from 'nodemailer';
 
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: process.env.EMAIL_PORT,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+const createTransporter = () => {
+  return nodemailer.createTransport({
+    host: process.env.EMAIL_HOST,
+    port: Number(process.env.EMAIL_PORT) || 587,
+    secure: false,
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  });
+};
 
 export const sendOrderConfirmation = async (userEmail, order, event) => {
+  const transporter = createTransporter();
   const itemsList = order.items.map(item => `${item.quantity} x ${item.tierName}`).join(', ');
 
   const mailOptions = {
@@ -33,6 +39,7 @@ export const sendOrderConfirmation = async (userEmail, order, event) => {
 };
 
 export const sendVerificationEmail = async (userEmail, token) => {
+  const transporter = createTransporter();
   const verificationUrl = `${process.env.FRONTEND_URL}/verify-email/${token}`;
 
   const mailOptions = {
@@ -47,5 +54,27 @@ export const sendVerificationEmail = async (userEmail, token) => {
     `,
   };
 
+  await transporter.sendMail(mailOptions);
+};
+
+export const sendEventCreationEmail = async (organizerEmail, event) => {
+  const transporter = createTransporter();
+  const mailOptions = {
+    from: `"EventTix" <${process.env.EMAIL_USER}>`,
+    to: organizerEmail,
+    subject: `Event Created: ${event.title}`,
+    html: `
+      <h2>Your event has been created!</h2>
+      <p><strong>Title:</strong> ${event.title}</p>
+      <p><strong>Category:</strong> ${event.category}</p>
+      <p><strong>Date:</strong> ${new Date(event.startDate).toLocaleString()}</p>
+      <p><strong>Venue:</strong> ${event.venue}, ${event.address}</p>
+      <p>Your event is now live and visible to attendees.</p>
+      <a href="${process.env.FRONTEND_URL}/events/${event._id}" 
+         style="display:inline-block;padding:10px 20px;background:#6366f1;color:#fff;border-radius:8px;text-decoration:none;margin-top:10px;">
+        View Event
+      </a>
+    `,
+  };
   await transporter.sendMail(mailOptions);
 };
