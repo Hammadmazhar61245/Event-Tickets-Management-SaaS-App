@@ -11,9 +11,17 @@ const CheckoutPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const tiers = location.state?.tiers || [];
+
   const [selectedQuantities, setSelectedQuantities] = useState({});
   const [proceeded, setProceeded] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // Promo states
+  const [promoCode, setPromoCode] = useState('');
+  const [discount, setDiscount] = useState(0);
+  const [adjustedTotal, setAdjustedTotal] = useState(0);
+  const [promoApplied, setPromoApplied] = useState(false);
+  const [promoError, setPromoError] = useState('');
 
   useEffect(() => {
     const saved = localStorage.getItem(`cart_${eventId}`);
@@ -39,17 +47,38 @@ const CheckoutPage = () => {
     if (itemsArray.length === 0) return toast.error('Please select at least one ticket.');
     localStorage.setItem(`cart_${eventId}`, JSON.stringify(itemsArray));
     setProceeded(true);
+    setAdjustedTotal(total);
+  };
+
+  const applyPromo = async () => {
+    setPromoError('');
+    if (!promoCode.trim()) return;
+    try {
+      const res = await api.post('/promo/validate', { code: promoCode, orderTotal: total });
+      if (res.data.valid) {
+        setDiscount(parseFloat(res.data.discountAmount));
+        setAdjustedTotal(parseFloat(res.data.newTotal));
+        setPromoApplied(true);
+        toast.success(`Promo applied! Save $${res.data.discountAmount}`);
+      }
+    } catch (err) {
+      setPromoError(err.response?.data?.message || 'Invalid code');
+    }
   };
 
   const confirmPurchase = async () => {
     setLoading(true);
     try {
-      await api.post('/orders/simulate-payment', {
+      const body = {
         eventId,
         items: itemsArray.map(i => ({ tierId: i.tierId, quantity: i.quantity }))
-      });
+      };
+      if (promoApplied && promoCode) {
+        body.promoCode = promoCode;
+      }
+      await api.post('/orders/simulate-payment', body);
       localStorage.removeItem(`cart_${eventId}`);
-      toast.success('Purchase successful! Check your tickets.');
+      toast.success('Purchase successful!');
       navigate('/dashboard');
     } catch (err) {
       toast.error(err.response?.data?.message || 'Purchase failed');
@@ -96,10 +125,38 @@ const CheckoutPage = () => {
               <span className="font-semibold dark:text-white">${(item.unitPrice * item.quantity).toFixed(2)}</span>
             </div>
           ))}
+
+          {/* Promo code section */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+            <label className="block text-sm font-semibold dark:text-white mb-1">Promo Code</label>
+            <div className="flex space-x-2">
+              <input
+                type="text"
+                value={promoCode}
+                onChange={(e) => setPromoCode(e.target.value)}
+                disabled={promoApplied}
+                className="flex-1 px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white/50 dark:bg-gray-800/50"
+                placeholder="Enter code"
+              />
+              <button
+                onClick={applyPromo}
+                disabled={promoApplied || !promoCode}
+                className="px-4 py-2 bg-primary-600 text-white rounded-xl hover:bg-primary-700 disabled:opacity-50"
+              >
+                Apply
+              </button>
+            </div>
+            {promoError && <p className="text-red-500 text-sm mt-1">{promoError}</p>}
+            {promoApplied && (
+              <p className="text-green-500 text-sm mt-1">Code applied! Discount: -${discount.toFixed(2)}</p>
+            )}
+          </div>
+
           <div className="flex justify-between font-bold text-xl mt-4 dark:text-white">
             <span>Total</span>
-            <span className="gradient-text">${total.toFixed(2)}</span>
+            <span className="gradient-text">${(promoApplied ? adjustedTotal : total).toFixed(2)}</span>
           </div>
+
           <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={confirmPurchase} disabled={loading}
             className="w-full mt-6 py-3 rounded-xl font-semibold bg-green-600 text-white hover:bg-green-700 disabled:opacity-50">
             {loading ? 'Processing...' : 'Confirm Purchase (Simulated)'}

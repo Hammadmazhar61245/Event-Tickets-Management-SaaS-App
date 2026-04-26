@@ -50,6 +50,9 @@ const LoginPage = () => {
         <p className="mt-6 text-center text-gray-600 dark:text-gray-400">
           Don't have an account? <Link to="/register" className="text-primary-600 font-semibold hover:underline">Register</Link>
         </p>
+        <div className="mt-2 text-right">
+  <Link to="/forgot-password" className="text-sm text-primary-600 hover:underline">Forgot Password?</Link>
+</div>
       </motion.div>
     </div>
   );
