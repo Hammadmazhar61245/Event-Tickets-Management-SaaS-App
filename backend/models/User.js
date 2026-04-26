@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';   // for reset token
 
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -10,9 +11,13 @@ const userSchema = new mongoose.Schema({
   isVerified: { type: Boolean, default: false },
   verificationToken: { type: String },
   bookmarkedEvents: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Event' }],
+  profilePicture: { type: String, default: '' },          // new field
+  resetPasswordToken: { type: String },                   // for forgot password
+  resetPasswordExpires: { type: Date },                   // for forgot password
   createdAt: { type: Date, default: Date.now }
 });
 
+// … rest of methods (matchPassword, pre-save) unchanged
 userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.passwordHash);
 };

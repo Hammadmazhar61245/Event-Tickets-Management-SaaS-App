@@ -57,6 +57,23 @@ export const sendVerificationEmail = async (userEmail, token) => {
   await transporter.sendMail(mailOptions);
 };
 
+export const sendPasswordResetEmail = async (userEmail, token) => {
+  const transporter = createTransporter();
+  const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${token}`;
+  const mailOptions = {
+    from: `"EventTix" <${process.env.EMAIL_USER}>`,
+    to: userEmail,
+    subject: 'Password Reset Request',
+    html: `
+      <h2>Reset Your Password</h2>
+      <p>Click the button below to set a new password. This link expires in 1 hour.</p>
+      <a href="${resetUrl}" style="display:inline-block;padding:12px 24px;background:#6366f1;color:white;border-radius:8px;text-decoration:none;">Reset Password</a>
+      <p>If you didn't request this, please ignore this email.</p>
+    `
+  };
+  await transporter.sendMail(mailOptions);
+};
+
 export const sendEventCreationEmail = async (organizerEmail, event) => {
   const transporter = createTransporter();
   const mailOptions = {
