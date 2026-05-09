@@ -15,7 +15,10 @@ const userSchema = new mongoose.Schema({
   resetPasswordToken: { type: String },                   // for forgot password
   resetPasswordExpires: { type: Date },                   // for forgot password
   createdAt: { type: Date, default: Date.now }
+  
 });
+
+
 
 // … rest of methods (matchPassword, pre-save) unchanged
 userSchema.methods.matchPassword = async function (enteredPassword) {
@@ -27,7 +30,10 @@ userSchema.pre('save', async function (next) {
   const salt = await bcrypt.genSalt(10);
   this.passwordHash = await bcrypt.hash(this.passwordHash, salt);
   next();
+
+  
 });
 
 const User = mongoose.model('User', userSchema);
 export default User;
+

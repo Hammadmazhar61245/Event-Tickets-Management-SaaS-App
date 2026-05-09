@@ -15,6 +15,9 @@ import searchRoutes from './routes/searchRoutes.js';
 import reviewRoutes from './routes/reviewRoutes.js';
 import promoRoutes from './routes/promoRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import speakerRoutes from './routes/speakerRoutes.js';
+import venueRoutes from './routes/venueRoutes.js';
+import attendeeRoutes from './routes/attendeeRoutes.js';
 
 dotenv.config();
 connectDB();
@@ -40,6 +43,9 @@ app.use('/api/bookmarks', bookmarkRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/promo', promoRoutes);
+app.use('/api/speakers', speakerRoutes);
+app.use('/api/venues', venueRoutes);
+app.use('/api/attendees', attendeeRoutes);
 
 app.use(errorHandler);
 

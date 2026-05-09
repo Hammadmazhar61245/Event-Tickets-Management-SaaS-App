@@ -3,6 +3,8 @@ import mongoose from 'mongoose';
 import User from './models/User.js';
 import Event from './models/Event.js';
 import TicketTier from './models/TicketTier.js';
+import Speaker from './models/Speaker.js';
+import Venue from './models/Venue.js';
 import connectDB from './config/db.js';
 
 dotenv.config();
@@ -10,33 +12,70 @@ connectDB();
 
 const seedData = async () => {
   try {
-    // Clear existing data (optional)
-    // Uncomment the next lines if you want a fresh start each time
-    // await User.deleteMany({});
-    // await Event.deleteMany({});
-    // await TicketTier.deleteMany({});
-
-    // 1. Create a demo organizer if not exists
+    // ---- Users ----
     let organizer = await User.findOne({ email: 'organizer@demo.com' });
     if (!organizer) {
       organizer = await User.create({
         name: 'Demo Organizer',
         email: 'organizer@demo.com',
-        passwordHash: 'demo123456',  // will be hashed by pre-save hook
+        passwordHash: 'demo123456',
         role: 'organizer',
         phone: '1234567890',
         isVerified: true,
       });
       console.log('Organizer created: organizer@demo.com / demo123456');
-    } else {
-      console.log('Organizer already exists.');
     }
 
-    // 2. Create sample events with ticket tiers
+    let attendee = await User.findOne({ email: 'attendee@demo.com' });
+    if (!attendee) {
+      await User.create({
+        name: 'Demo Attendee',
+        email: 'attendee@demo.com',
+        passwordHash: 'demo123456',
+        role: 'attendee',
+        phone: '0987654321',
+        isVerified: true,
+      });
+      console.log('Attendee created: attendee@demo.com / demo123456');
+    }
+
+    // ---- Speakers ----
+    const speakersData = [
+      { name: 'Dr. Sarah Johnson', bio: 'AI researcher and keynote speaker', imageUrl: 'https://randomuser.me/api/portraits/women/44.jpg', email: 'sarah@speaker.com' },
+      { name: 'Mark Chen', bio: 'Full‑stack developer & open‑source advocate', imageUrl: 'https://randomuser.me/api/portraits/men/32.jpg', email: 'mark@speaker.com' },
+      { name: 'Elena Rodriguez', bio: 'UX designer at a leading tech firm', imageUrl: 'https://randomuser.me/api/portraits/women/68.jpg', email: 'elena@speaker.com' },
+      { name: 'James Okafor', bio: 'Founder of Startup XYZ, investor', imageUrl: 'https://randomuser.me/api/portraits/men/78.jpg', email: 'james@speaker.com' },
+    ];
+
+    for (const sp of speakersData) {
+      const exists = await Speaker.findOne({ email: sp.email, organizerId: organizer._id });
+      if (!exists) {
+        await Speaker.create({ ...sp, organizerId: organizer._id });
+        console.log(`Speaker added: ${sp.name}`);
+      }
+    }
+
+    // ---- Venues ----
+    const venuesData = [
+      { name: 'Grand Arena', address: '123 Main Street, Downtown', capacity: 500, imageUrl: 'https://images.unsplash.com/photo-1505236858219-8359eb29e329?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
+      { name: 'Innovation Hub', address: '456 Tech Park, Silicon Valley', capacity: 200, imageUrl: 'https://images.unsplash.com/photo-1497366753790-7e4b0e6b5c9f?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
+      { name: 'Skyline Conference Center', address: '789 Highrise Blvd, New York', capacity: 800, imageUrl: 'https://images.unsplash.com/photo-1558730234-03b0b3b3b3b3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
+      { name: 'Riverside Pavilion', address: '321 River Road, Austin', capacity: 350, imageUrl: 'https://images.unsplash.com/photo-1519167758481-83f550bb49b3?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80' },
+    ];
+
+    for (const v of venuesData) {
+      const exists = await Venue.findOne({ name: v.name, organizerId: organizer._id });
+      if (!exists) {
+        await Venue.create({ ...v, organizerId: organizer._id });
+        console.log(`Venue added: ${v.name}`);
+      }
+    }
+
+    // ---- Events & Tiers (keep existing) ----
     const events = [
       {
         title: 'Summer Music Festival',
-        description: 'A three-day outdoor music festival featuring top artists from around the world. Enjoy live performances, food stalls, and camping.',
+        description: 'A three-day outdoor music festival featuring top artists from around the world.',
         category: 'Music',
         venue: 'Central Park',
         address: '123 Park Ave, New York, NY',
@@ -50,7 +89,7 @@ const seedData = async () => {
       },
       {
         title: 'Tech Conference 2025',
-        description: 'The biggest tech conference of the year. Learn about AI, blockchain, and the future of software development from industry leaders.',
+        description: 'The biggest tech conference of the year. Learn about AI, blockchain, and the future of software.',
         category: 'Technology',
         venue: 'Convention Center',
         address: '456 Tech Blvd, San Francisco, CA',
@@ -65,7 +104,7 @@ const seedData = async () => {
       },
       {
         title: 'Food & Wine Expo',
-        description: 'Taste exquisite dishes from renowned chefs and sample fine wines from around the world. Cooking demos and tasting sessions included.',
+        description: 'Taste exquisite dishes from renowned chefs and sample fine wines from around the world.',
         category: 'Food',
         venue: 'Grand Exhibition Hall',
         address: '789 Gourmet St, Chicago, IL',
@@ -95,9 +134,8 @@ const seedData = async () => {
 
     for (const eventData of events) {
       const { tiers, ...eventFields } = eventData;
-      // Check if event already exists by title + organizer
-      let existingEvent = await Event.findOne({ title: eventFields.title, organizerId: organizer._id });
-      if (!existingEvent) {
+      const exists = await Event.findOne({ title: eventFields.title, organizerId: organizer._id });
+      if (!exists) {
         const event = await Event.create({ ...eventFields, organizerId: organizer._id, status: 'published' });
         for (const tier of tiers) {
           await TicketTier.create({ ...tier, eventId: event._id });
@@ -108,7 +146,7 @@ const seedData = async () => {
       }
     }
 
-    console.log('Seeding complete!');
+    console.log('✅ Seeding complete (users, events, tiers, speakers, venues).');
     process.exit(0);
   } catch (error) {
     console.error('Seeding error:', error);

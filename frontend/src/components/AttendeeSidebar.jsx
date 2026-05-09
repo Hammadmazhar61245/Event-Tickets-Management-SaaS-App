@@ -1,32 +1,26 @@
 import { NavLink } from 'react-router-dom';
 import {
   FiHome,
-  FiCalendar,
-  FiUsers,
+  FiCompass,
   FiClipboard,
-  FiMic,
-  FiMapPin,
-  FiBarChart2,
-  FiSettings,
+  FiShoppingBag,
+  FiBookmark,
+  FiUser,
   FiLogOut,
-  FiBookmark, // ← added
 } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
 const sidebarItems = [
-  { to: '/organizer/dashboard', icon: FiHome, label: 'Dashboard' },
-  { to: '/organizer/events', icon: FiCalendar, label: 'Events' },
-  { to: '/organizer/attendees', icon: FiUsers, label: 'Attendees' },
-  { to: '/organizer/tickets', icon: FiClipboard, label: 'Tickets' },
-  { to: '/organizer/speakers', icon: FiMic, label: 'Speakers' },
-  { to: '/organizer/venues', icon: FiMapPin, label: 'Venues' },
-  { to: '/organizer/bookmarks', icon: FiBookmark, label: 'Bookmarks' }, // ← new entry
-  { to: '/organizer/analytics', icon: FiBarChart2, label: 'Analytics' },
-  { to: '/organizer/settings', icon: FiSettings, label: 'Settings' },
+  { to: '/dashboard', icon: FiHome, label: 'Dashboard' },
+  { to: '/events', icon: FiCompass, label: 'Browse Events' },
+  { to: '/my-tickets', icon: FiClipboard, label: 'My Tickets' },
+  { to: '/my-orders', icon: FiShoppingBag, label: 'My Orders' },
+  { to: '/bookmarks', icon: FiBookmark, label: 'Bookmarks' },
+  { to: '/profile', icon: FiUser, label: 'Profile' },
 ];
 
-const OrganizerSidebar = () => {
+const AttendeeSidebar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
@@ -79,4 +73,4 @@ const OrganizerSidebar = () => {
   );
 };
 
-export default OrganizerSidebar;
+export default AttendeeSidebar;
