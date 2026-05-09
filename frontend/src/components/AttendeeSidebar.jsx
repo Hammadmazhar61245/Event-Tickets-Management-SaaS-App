@@ -11,6 +11,10 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 
+// Build the backend base URL from the API URL (remove "/api")
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const BASE_URL = API_URL.replace(/\/api$/, '');   // e.g. http://localhost:5000
+
 const sidebarItems = [
   { to: '/dashboard', icon: FiHome, label: 'Dashboard' },
   { to: '/events', icon: FiCompass, label: 'Browse Events' },
@@ -28,6 +32,13 @@ const AttendeeSidebar = () => {
     logout();
     navigate('/');
   };
+
+  // Construct full profile picture URL
+  const profilePic = user?.profilePicture
+    ? user.profilePicture.startsWith('/uploads')
+      ? `${BASE_URL}${user.profilePicture}`
+      : user.profilePicture   // if already absolute or something else
+    : 'https://ui-avatars.com/api/?name=User&background=6366f1&color=fff&size=100';   // default placeholder
 
   return (
     <aside className="w-64 h-screen bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col sticky top-0">
@@ -53,7 +64,7 @@ const AttendeeSidebar = () => {
       <div className="p-4 border-t border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-3 mb-3">
           <img
-            src={user?.profilePicture || '/default-avatar.png'}
+            src={profilePic}
             alt={user?.name}
             className="w-10 h-10 rounded-full object-cover"
           />

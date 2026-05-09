@@ -5,6 +5,10 @@ import api from '../api/axios';
 import { useAuth } from '../context/AuthContext';
 import { FiCamera } from 'react-icons/fi';
 
+// Build backend base URL from the API URL (remove "/api")
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const BASE_URL = API_URL.replace(/\/api$/, '');   // http://localhost:5000
+
 const ProfilePage = () => {
   const { user, refreshUser } = useAuth();
   const [form, setForm] = useState({ name: '', email: '', phone: '' });
@@ -14,7 +18,19 @@ const ProfilePage = () => {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef();
 
-  // When user data loads, populate the form and set initial preview
+  // Build full URL for stored profile picture, or generate fallback avatar
+  const getProfilePicUrl = (picturePath) => {
+    if (!picturePath) {
+      // Fallback avatar with user's initials
+      const name = user?.name || 'User';
+      return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=6366f1&color=fff&size=150`;
+    }
+    if (picturePath.startsWith('/uploads')) {
+      return `${BASE_URL}${picturePath}`;
+    }
+    return picturePath; // already absolute or a blob URL
+  };
+
   useEffect(() => {
     if (user) {
       setForm({
@@ -22,8 +38,8 @@ const ProfilePage = () => {
         email: user.email || '',
         phone: user.phone || '',
       });
-      // Set preview from the user profile picture (full URL from server)
-      setPreview(user.profilePicture || '');
+      // Set preview using the full backend URL
+      setPreview(getProfilePicUrl(user.profilePicture));
     }
   }, [user]);
 
@@ -34,7 +50,7 @@ const ProfilePage = () => {
     const file = e.target.files[0];
     if (file) {
       setPicture(file);
-      setPreview(URL.createObjectURL(file)); // show local preview immediately
+      setPreview(URL.createObjectURL(file)); // local preview immediately
     }
   };
 
@@ -48,10 +64,10 @@ const ProfilePage = () => {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       toast.success('Profile picture updated!');
-      // Update global user state to reflect new picture
+      // Refresh global user state (this will update `user.profilePicture`)
       await refreshUser();
-      // Keep the preview from server response (the /uploads/... path)
-      setPreview(res.data.profilePicture || '');
+      // Update preview to the full URL of the new picture
+      setPreview(getProfilePicUrl(res.data.profilePicture));
       setPicture(null);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Upload failed');
@@ -92,10 +108,6 @@ const ProfilePage = () => {
               src={preview}
               alt="Profile"
               className="w-full h-full object-cover"
-              onError={(e) => {
-                e.target.onerror = null;
-                e.target.src = '/default-avatar.png'; // fallback
-              }}
             />
           ) : (
             <FiCamera className="w-full h-full p-6 text-gray-400" />

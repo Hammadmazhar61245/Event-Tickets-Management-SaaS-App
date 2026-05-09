@@ -9,10 +9,13 @@ import {
   FiBarChart2,
   FiSettings,
   FiLogOut,
-  FiBookmark, // ← added
+  FiBookmark,
 } from 'react-icons/fi';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const BASE_URL = API_URL.replace(/\/api$/, '');
 
 const sidebarItems = [
   { to: '/organizer/dashboard', icon: FiHome, label: 'Dashboard' },
@@ -21,7 +24,7 @@ const sidebarItems = [
   { to: '/organizer/tickets', icon: FiClipboard, label: 'Tickets' },
   { to: '/organizer/speakers', icon: FiMic, label: 'Speakers' },
   { to: '/organizer/venues', icon: FiMapPin, label: 'Venues' },
-  { to: '/organizer/bookmarks', icon: FiBookmark, label: 'Bookmarks' }, // ← new entry
+  { to: '/organizer/bookmarks', icon: FiBookmark, label: 'Bookmarks' },
   { to: '/organizer/analytics', icon: FiBarChart2, label: 'Analytics' },
   { to: '/organizer/settings', icon: FiSettings, label: 'Settings' },
 ];
@@ -34,6 +37,12 @@ const OrganizerSidebar = () => {
     logout();
     navigate('/');
   };
+
+  const profilePic = user?.profilePicture
+    ? user.profilePicture.startsWith('/uploads')
+      ? `${BASE_URL}${user.profilePicture}`
+      : user.profilePicture
+    : 'https://ui-avatars.com/api/?name=Organizer&background=6366f1&color=fff&size=100';
 
   return (
     <aside className="w-64 h-screen bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col sticky top-0">
@@ -59,7 +68,7 @@ const OrganizerSidebar = () => {
       <div className="p-4 border-t border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-3 mb-3">
           <img
-            src={user?.profilePicture || '/default-avatar.png'}
+            src={profilePic}
             alt={user?.name}
             className="w-10 h-10 rounded-full object-cover"
           />
