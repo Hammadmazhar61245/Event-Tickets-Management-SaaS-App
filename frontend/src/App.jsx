@@ -7,49 +7,65 @@ import EventsPage from './pages/EventsPage';
 import EventDetailsPage from './pages/EventDetailsPage';
 import CheckoutPage from './pages/CheckoutPage';
 import DashboardPage from './pages/DashboardPage';
-import MyEventsPage from './pages/MyEventsPage';
-import CreateEventPage from './pages/CreateEventPage';
-import EditEventPage from './pages/EditEventPage';
 import MyTicketsPage from './pages/MyTicketsPage';
 import OrdersPage from './pages/OrdersPage';
-import ProtectedRoute from './components/ProtectedRoute';
 import ProfilePage from './pages/ProfilePage';
 import BookmarksPage from './pages/BookmarksPage';
-import AnalyticsPage from './pages/AnalyticsPage';
-import VerifyEmailPage from './pages/VerifyEmailPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
+import ProtectedRoute from './components/ProtectedRoute';
+
+// Organizer sidebar layout
+import OrganizerLayout from './components/OrganizerLayout';
+import OrganizerDashboard from './pages/OrganizerDashboard';
+import OrganizerEvents from './pages/OrganizerEvents';
+import OrganizerCreateEvent from './pages/OrganizerCreateEvent';
+import OrganizerAttendees from './pages/OrganizerAttendees';
+import OrganizerTickets from './pages/OrganizerTickets';
+import OrganizerSpeakers from './pages/OrganizerSpeakers';
+import OrganizerVenues from './pages/OrganizerVenues';
+import OrganizerAnalytics from './pages/AnalyticsPage'; // reuse existing analytics
+import OrganizerSettings from './pages/OrganizerSettings';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Layout />}>
-        <Route path="forgot-password" element={<ForgotPasswordPage />} />
-         <Route path="reset-password/:token" element={<ResetPasswordPage />} />
+          {/* Public routes */}
           <Route index element={<HomePage />} />
           <Route path="login" element={<LoginPage />} />
           <Route path="register" element={<RegisterPage />} />
           <Route path="events" element={<EventsPage />} />
           <Route path="events/:id" element={<EventDetailsPage />} />
+          <Route path="forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="reset-password/:token" element={<ResetPasswordPage />} />
           <Route path="verify-email/:token" element={<VerifyEmailPage />} />
 
-          {/* Protected routes (any logged-in user) */}
+          {/* Attendee protected routes */}
           <Route element={<ProtectedRoute />}>
             <Route path="dashboard" element={<DashboardPage />} />
+            <Route path="my-tickets" element={<MyTicketsPage />} />
+            <Route path="my-orders" element={<OrdersPage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="bookmarks" element={<BookmarksPage />} />
             <Route path="checkout/:eventId" element={<CheckoutPage />} />
-            <Route path="my-tickets" element={<MyTicketsPage />} />
-            <Route path="my-orders" element={<OrdersPage />} />
           </Route>
 
-          {/* Organizer-only routes */}
+          {/* Organizer routes with sidebar layout */}
           <Route element={<ProtectedRoute requiredRole="organizer" />}>
-            <Route path="organizer/events" element={<MyEventsPage />} />
-            <Route path="organizer/events/create" element={<CreateEventPage />} />
-            <Route path="organizer/events/:id/edit" element={<EditEventPage />} />
-            <Route path="organizer/analytics" element={<AnalyticsPage />} />
+            <Route path="organizer" element={<OrganizerLayout />}>
+              <Route path="dashboard" element={<OrganizerDashboard />} />
+              <Route path="events" element={<OrganizerEvents />} />
+              <Route path="events/create" element={<OrganizerCreateEvent />} />
+              <Route path="attendees" element={<OrganizerAttendees />} />
+              <Route path="tickets" element={<OrganizerTickets />} />
+              <Route path="speakers" element={<OrganizerSpeakers />} />
+              <Route path="venues" element={<OrganizerVenues />} />
+              <Route path="analytics" element={<OrganizerAnalytics />} />
+              <Route path="settings" element={<OrganizerSettings />} />
+            </Route>
           </Route>
         </Route>
       </Routes>
